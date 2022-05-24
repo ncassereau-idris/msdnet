@@ -17,6 +17,7 @@ import skimage.transform as skt
 import imageio
 import numpy as np
 import os.path
+import glob
 
 class Logger(abc.ABC):
     '''Base logger class
@@ -24,9 +25,24 @@ class Logger(abc.ABC):
     Logs progress of validation set during training.
     '''
 
-    def __init__(self, *args, onlyifbetter=False, **kwargs):
+    def __init__(self, *args, onlyifbetter=False, period=None, **kwargs):
+        #self.mkdir("logs")
         self.onlyifbetter = onlyifbetter
         self.initialize(*args, **kwargs)
+
+        self.period = period
+        self.current_step = 0
+
+    @staticmethod
+    def mkdir(*args):
+        path = os.path.join(*args)
+        try:
+            os.makedirs(path)
+        except FileExistsError:
+            # Delete any remaining picture in the folder
+            search = os.path.join(path, "*.png")
+            for filename in glob.glob(search):
+                os.remove(filename)
 
     @abc.abstractmethod
     def makelog(self, v):
@@ -46,9 +62,16 @@ class Logger(abc.ABC):
 
         :param v: validation set
         '''
-        if self.onlyifbetter and v.best != v.curerr:
-            return
-        self.makelog(v)
+        self.current_step += 1
+        if self.onlyifbetter:
+            if v.best != v.curerr:
+                return
+            else:
+                self.makelog(v)
+        elif self.period is not None and self.current_step % self.period == 0:
+            self.makelog(v)
+        else:
+            self.makelog(v)
 
 class ConsoleLogger(Logger):
     '''Output error values to the console.'''
@@ -56,7 +79,7 @@ class ConsoleLogger(Logger):
         pass
 
     def makelog(self, v):
-        print('Current error: ', v.curerr, ', Best error: ', v.best)
+        print(f'Step: {self.current_step}, Current error: {v.curerr}, Best error: {v.best}')
 
 class FileLogger(Logger):
     '''Output error values to a file.'''
@@ -66,12 +89,12 @@ class FileLogger(Logger):
         :param fn: Filename to log error values to.
         '''
         self.fn = fn
-        with open(fn,'w') as _:
+        with open(self.fn,'w') as _:
             pass
     
     def makelog(self, v):
         with open(self.fn, 'a') as f:
-            f.write('Current error: {}, Best error: {}\n'.format(v.curerr, v.best))
+            f.write(f'Step: {self.current_step}, Current error: {v.curerr}, Best error: {v.best}\n')
 
 header_image = None
 header_dict = {}
@@ -150,18 +173,18 @@ class ImageLogger(Logger):
         self.ci = chan_in
         self.co = chan_out
         self.imsize = imsize
-        for tpe in ['best', 'worst', 'typical']:
-            with open(fn+'_'+tpe+'.png','w') as _:
-                pass
+        # for tpe in ['best', 'worst', 'typical']:
+        #     with open(self.fn + '_' + tpe + '.png', 'w') as _:
+        #         pass
     
     def toimage(self, ims):
         inp, tar, out = ims
         return stitchimages([inp[self.ci], tar[self.co], out[self.co]], self.imsize)
 
     def makelog(self, v):
-        imageio.imsave(self.fn+'_best.png',self.toimage(v.getbest()))
-        imageio.imsave(self.fn+'_worst.png',self.toimage(v.getworst()))
-        imageio.imsave(self.fn+'_typical.png',self.toimage(v.getmedian()))
+        imageio.imsave(self.fn + f'_step_{self.current_step:09}_best.png', self.toimage(v.getbest()))
+        imageio.imsave(self.fn + f'_step_{self.current_step:09}_worst.png', self.toimage(v.getworst()))
+        imageio.imsave(self.fn + f'_step_{self.current_step:09}_typical.png', self.toimage(v.getmedian()))
 
 class ImageLabelLogger(Logger):
     '''Output best, worst, and typical images for validation set for segmentation problems.'''
@@ -175,9 +198,9 @@ class ImageLabelLogger(Logger):
         self.fn = fn
         self.ci = chan_in
         self.imsize = imsize
-        for tpe in ['best', 'worst', 'typical']:
-            with open(fn+'_'+tpe+'.png','w') as _:
-                pass
+        # for tpe in ['best', 'worst', 'typical']:
+        #     with open(self.fn+'_'+tpe+'.png','w') as _:
+        #         pass
         self.colors = [
             [0,0,0],
             [31,120,180],
@@ -221,6 +244,6 @@ class ImageLabelLogger(Logger):
         
 
     def makelog(self, v):
-        imageio.imsave(self.fn+'_best.png',self.toimage(v.getbest()))
-        imageio.imsave(self.fn+'_worst.png',self.toimage(v.getworst()))
-        imageio.imsave(self.fn+'_typical.png',self.toimage(v.getmedian()))
+        imageio.imsave(self.fn + f'_step_{self.current_step:09}_best.png', self.toimage(v.getbest()))
+        imageio.imsave(self.fn + f'_step_{self.current_step:09}_worst.png', self.toimage(v.getworst()))
+        imageio.imsave(self.fn + f'_step_{self.current_step:09}_typical.png', self.toimage(v.getmedian()))
