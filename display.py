@@ -18,6 +18,7 @@ def read_log(directory, prefix):
 
     with open(filename, "r") as logfile:
         lines = logfile.readlines()
+
     # Split a line in 3 cols: step, error, best_error. Ditch best error
     lines = [line.split(", ")[:-1] for line in lines]
 
@@ -71,7 +72,7 @@ def main(args):
     plt.show()
 
 
-if __name__ ==  "__main__":
+if __name__ == "__main__":
     parser = make_parser()
     args = parser.parse_args()
     main(args)
