@@ -22,23 +22,40 @@ Run generatedata.py first to generate required training data.
 import msdnet
 import tifffile
 import numpy as np
+import argparse
+from pathlib import Path
 
-def traingreyvol(mydir, prefixlow, prefixhigh):
-    namelogfile='%s/log_%s.txt' %(mydir,prefixlow)
-    nameimagelogfile='%s/image_%s' %(mydir,prefixlow)
-    nameimagelogfilesingle='%s/image_single_%s' %(mydir,prefixlow)
-    nametrainfile='%s/train_file_%s.h5' %(mydir,prefixlow)
 
-    namelow='%s/%s.tif' %(mydir,prefixlow)
-    namehigh='%s/%s.tif' %(mydir,prefixhigh)
+def make_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("username", type=str, action="store", required=True)
+    parser.add_argument("samplename", type=str, action="store", required=True)
+    parser.add_argument("lowvolname", type=str, action="store", required=True)
+    parser.add_argument("highvolname", type=str, action="store", required=True)
+    parser.add_argument("--nbdil", type=int, default=10, action="store")
+    parser.add_argument("--nblayer", type=int, default=100, action="store")
+    parser.add_argument("--nbchan", type=int, default=5, action="store", help="mettre 5 pour faire du 2.5 D ou 1 pour des slices")
+    parser.add_argument("--nblab", type=int, default=1, action="store", help="garder 1 pour un entrainement sur niveaux de gris")
+    return parser
+
+
+def traingreyvol(username, samplename, lowvolname, highvolname, nbdil=10, nblayer=100, nbchan=5, nblab=1):
+    path_prefix = Path(username, samplename)
+    namelogfile = path_prefix / f"log_{lowvolname}.txt"
+    nameimagelogfile = path_prefix / f"image_{lowvolname}"
+    nameimagelogfilesingle = path_prefix / f"image_single_{lowvolname}"
+    nametrainfile = path_prefix / f"train_file_{lowvolname}.h5"
+
+    namelow = path_prefix / f"{lowvolname}.tif"
+    namehigh = path_prefix / f"{highvolname}.tif"
 
     # Define dilations in [1,10] as in paper.
-    dilations = msdnet.dilations.IncrementDilations(10)
+    dilations = msdnet.dilations.IncrementDilations(nbdil)
 
     # Create main network object for segmentation, with 100 layers,
     # [1,10] dilations, 5 input channels (5 slices), 4 output channels (one for each label), 
     # using the GPU (set gpu=False to use CPU)
-    n = msdnet.network.MSDNet(100, dilations, 5, 1, gpu=True)
+    n = msdnet.network.MSDNet(nblayer, dilations, nbchan, nblab, gpu=True)
 
     # Initialize network parameters
     n.initialize()
@@ -106,11 +123,15 @@ def traingreyvol(mydir, prefixlow, prefixhigh):
 
 
 if __name__ == "__main__":
-    import sys
-    #dir name
-    mydir = sys.argv[1]
-    #prefix name lowquality volume
-    prefixlow = sys.argv[2]
-    #prefix name high volume
-    prefixhigh = sys.argv[3]
-    traingreyvol(mydir, prefixlow, prefixhigh)
+    parser = make_parser()
+    args = parser.parse_args()
+    traingreyvol(
+        username=args.username,
+        samplename=args.samplename,
+        lowvolname=args.lowvolname,
+        highvolname=args.highvolname,
+        nbdil=args.nbdil,
+        nblayer=args.nblayer,
+        nbchan=args.nbchan,
+        nblab=args.nblab
+    )

@@ -25,13 +25,24 @@ import imageio
 import numpy as np
 import tifffile
 import tqdm
+import argparse
+from pathlib import Path
 
 
-def applygreyvol(mydir, prefixlow):
-    nameh5='%s/train_file_%s.h5' %(mydir,prefixlow)
+def make_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("username", type=str, action="store", required=True)
+    parser.add_argument("samplename", type=str, action="store", required=True)
+    parser.add_argument("lowvolname", type=str, action="store", required=True)
+    return parser
 
-    namelow='%s/%s.tif' %(mydir,prefixlow)
-    nameout='%s/IA_%s.tif' %(mydir,prefixlow)
+
+def applygreyvol(username, samplename, lowvolname):
+    path_prefix = Path(username, samplename)
+    nameh5 = path_prefix / f"train_file_{lowvolname}.h5"
+
+    namelow = path_prefix / f"{lowvolname}.tif"
+    nameout = path_prefix / f"IA_{lowvolname}.tif"
 
     arrin = tifffile.imread(namelow)
     dats = []
@@ -54,9 +65,10 @@ def applygreyvol(mydir, prefixlow):
 
 
 if __name__ == "__main__":
-    import sys
-    #dir name
-    mydir = sys.argv[1]
-    #prefix name
-    prefixlow = sys.argv[2]
-    applygreyvol(mydir, prefixlow)
+    parser = make_parser()
+    args = parser.parse_args()
+    applygreyvol(
+        username=args.username,
+        samplename=args.samplename,
+        lowvolname=args.lowvolname
+    )
