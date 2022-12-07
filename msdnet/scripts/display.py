@@ -45,8 +45,7 @@ def get_image(directory, prefix, step):
     return plt.imread(path)
 
 
-def main(args):
-    directory, prefix = args.directory, args.prefix
+def display(directory, prefix):
 
     steps, errors = read_log(directory, prefix)
     placeholder = get_empty_pic(directory, prefix)
@@ -75,4 +74,4 @@ def main(args):
 if __name__ == "__main__":
     parser = make_parser()
     args = parser.parse_args()
-    main(args)
+    display(args.directory, args.prefix)
