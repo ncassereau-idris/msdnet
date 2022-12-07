@@ -20,24 +20,39 @@ Run generatedata.py first to generate required training data.
 
 # Import code
 import msdnet
+import argparse
 from pathlib import Path
 
 
-def traingrey(mydir, prefix):
-    namelogfile='%s/logs/log_%s.txt' %(mydir,prefix)
-    nameimagelogfile='%s/logs/image_%s' %(mydir,prefix)
-    nametrainfile='%s/logs/train_file_%s.h5' %(mydir,prefix)
+def make_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("username", type=str, action="store", required=True)
+    parser.add_argument("samplename", type=str, action="store", required=True)
+    parser.add_argument("volname", type=str, action="store", required=True)
+    parser.add_argument("--nbdil", type=int, default=10, action="store")
+    parser.add_argument("--nblayer", type=int, default=100, action="store")
+    parser.add_argument("--nbchan", type=int, default=5, action="store", help="mettre 5 pour faire du 2.5 D ou 1 pour des slices")
+    parser.add_argument("--nblab", type=int, default=1, action="store", help="garder 1 pour un entrainement sur niveaux de gris")
+    return parser
+
+
+def traingrey(username, samplename, volname, nbdil=10, nblayer=100, nbchan=5, nblab=1):
+    path_prefix = Path(username, samplename)
+    path_prefix_logs = path_prefix / "logs"
+    namelogfile = path_prefix_logs / f"log_{volname}.txt"
+    nameimagelogfile = path_prefix_logs / f"image_{volname}.txt"
+    nametrainfile = path_prefix_logs / f"train_file_{volname}.h5"
 
 
     # Define dilations in [1,10] as in paper.
-    dilations = msdnet.dilations.IncrementDilations(10)
+    dilations = msdnet.dilations.IncrementDilations(nbdil)
 
     # Create main network object for regression, with 100 layers,
     # [1,10] dilations, 5 input channels (5 slices), 1 output channel, using
     # the GPU (set gpu=False to use CPU)
     #n = msdnet.network.MSDNet(100, dilations, 5, 1, gpu=True)
 
-    n = msdnet.network.MSDNet(100, dilations, 5, 1, gpu=True)
+    n = msdnet.network.MSDNet(nblayer, dilations, nbchan, nblab, gpu=True)
 
     # Initialize network parameters
     n.initialize()
@@ -51,8 +66,8 @@ def traingrey(mydir, prefix):
 
     # Create list of datapoints (i.e. input/target pairs)
     dats = []
-    namelow='%s/%s_trainlq/*.tif' %(mydir,prefix)
-    namehigh='%s/%s_trainhq/*.tif' %(mydir,prefix)
+    namelow = path_prefix / f"{volname}_trainlq" / "*.tif"
+    namehigh = path_prefix / f"{volname}_trainhq" / "*.tif"
     dats = msdnet.utils.load_simple_data(namelow,namehigh, augment=False)
 
     # Convert input slices to input slabs (i.e. multiple slices as input)
@@ -70,8 +85,8 @@ def traingrey(mydir, prefix):
     print('read validation files ...')
 
     # Define validation data (not using augmentation)
-    namelow2='%s/%s_vallq/*.tif' %(mydir,prefix)
-    namehigh2='%s/%s_valhq/*.tif' %(mydir,prefix)
+    namelow2 = path_prefix / f"{volname}_vallq" / "*.tif"
+    namehigh2 = path_prefix / f"{volname}_valhq" / "*.tif"
     datsv = msdnet.utils.load_simple_data(namelow2,namehigh2, augment=False)
 
     # Convert input slices to input slabs (i.e. multiple slices as input)
@@ -101,12 +116,14 @@ def traingrey(mydir, prefix):
     msdnet.train.train(n, t, val, bprov, nametrainfile,loggers=[consolelog,filelog,imagelog], val_every=len(datsv))
 
 if __name__ == "__main__":
-    import sys
-
-    #dir name
-    mydir = sys.argv[1]
-
-    #prefix name
-    prefix = sys.argv[2]
-
-    traingrey(mydir, prefix)
+    parser = make_parser()
+    args = parser.parse_args()
+    traingrey(
+        username=args.username,
+        samplename=args.samplename,
+        volname=args.volname,
+        nbdil=args.nbdil,
+        nblayer=args.nblayer,
+        nbchan=args.nbchan,
+        nblab=args.nblab
+    )

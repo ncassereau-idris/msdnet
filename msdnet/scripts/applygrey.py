@@ -24,21 +24,32 @@ import msdnet
 from pathlib import Path
 import imageio
 import tqdm
+import argparse
+from pathlib import Path
 
 
-def applygrey(mydir, prefix):
-    nameh5='%s/train_file_%s.h5' %(mydir,prefix)
+def make_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("username", type=str, action="store", required=True)
+    parser.add_argument("samplename", type=str, action="store", required=True)
+    parser.add_argument("volname", type=str, action="store", required=True)
+    return parser
+
+
+def applygrey(username, samplename, volname):
+    path_prefix = Path(username, samplename)
+    nameh5 = path_prefix / f"train_file_{volname}.h5"
 
 
     # Make folder for output
-    outfolder = Path('%s/volIA_%s' %(mydir,prefix))
+    outfolder = path_prefix / f"volIA_{volname}"
     outfolder.mkdir(exist_ok=True)
 
     # Load network from file
     n = msdnet.network.MSDNet.from_file(nameh5, gpu=True)
 
     # Process all test images
-    flsin = sorted((Path('%s/%s_apply' %(mydir,prefix))).glob('*.tif'))
+    flsin = sorted((path_prefix / f"{volname}_apply").glob('*.tif'))
 
     dats = [msdnet.data.ImageFileDataPoint(str(f)) for f in flsin]
     # Convert input slices to input slabs (i.e. multiple slices as input)
@@ -47,14 +58,14 @@ def applygrey(mydir, prefix):
         # Compute network output
         output = n.forward(dats[i].input)
         # Save network output to file
-        namesave='IA_%s_%04d.tiff' %(prefix,i)
+        namesave='IA_%s_%04d.tiff' %(volname,i)
         imageio.imsave(outfolder / namesave , output[0])
 
 if __name__ == "__main__":
-    import sys
-
-    #dir name
-    mydir = sys.argv[1]
-    #prefix name
-    prefix = sys.argv[2]
-    applygrey(mydir, prefix)
+    parser = make_parser()
+    args = parser.parse_args()
+    applygrey(
+        username=args.username,
+        samplename=args.samplename,
+        volname=args.volname
+    )
