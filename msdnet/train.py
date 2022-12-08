@@ -152,7 +152,7 @@ def restore_training(fn, netclass, trainclass, valclass, valdata, gpu=True):
     return n, t, v
 
 
-def train(network, trainalg, validation, dataprov, outputfile, val_every=None, loggers=None, stopcrit=None, progress=False):
+def train(network, trainalg, validation, dataprov, outputfile, val_every=None, loggers=None, stopcrit=None, progress=False, scheduler=None):
     """Train network.
 
     :param network: :class:`.network.Network` to train with   
@@ -164,12 +164,13 @@ def train(network, trainalg, validation, dataprov, outputfile, val_every=None, l
     :param loggers: (optional) list of :class:`loggers.Logger` objects to perform logging.
     :param stopcric: (optional) stopping criterion to use.
     :param progress: (optional) whether to show progress during training
+    :param scheduler: (optional) learning rate scheduler
     """
     if not val_every:
         val_every = len(validation.d)
     if not stopcrit:
         stopcrit = stoppingcriterion.NeverStop()
-    
+
     parts = outputfile.split('.')
     if len(parts)>1:
         checkpointfile = '.'.join(parts[:-1]) + '.checkpoint'
@@ -185,6 +186,8 @@ def train(network, trainalg, validation, dataprov, outputfile, val_every=None, l
     while True:
         batch = dataprov.getbatch()
         trainalg.step(network, batch)
+        if scheduler is not None:
+            scheduler.step()
         ntrainimages += len(batch)
         nstep+=1
         if progress:
